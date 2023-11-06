@@ -10,6 +10,18 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
+func metadataNode(property, content string) *html.Node {
+	return &html.Node{
+		Type:     html.ElementNode,
+		DataAtom: atom.Meta,
+		Data:     "meta",
+		Attr: []html.Attribute{
+			{Key: "property", Val: property},
+			{Key: "content", Val: content},
+		},
+	}
+}
+
 type Metadata struct {
 	Property string
 	Content  string
@@ -26,6 +38,44 @@ type Object struct {
 	Locale      *Locale
 	SiteName    string
 	Videos      []*Video
+}
+
+func (o *Object) HTML() []*html.Node {
+	var nodes []*html.Node
+	if o.Title != "" {
+		nodes = append(nodes, metadataNode("og:title", o.Title))
+	}
+	if o.Type != "" {
+		nodes = append(nodes, metadataNode("og:type", o.Type))
+	}
+	for _, i := range o.Images {
+		nodes = append(nodes, i.html()...)
+	}
+	if o.URL != "" {
+		nodes = append(nodes, metadataNode("og:url", o.URL))
+	}
+	for _, a := range o.Audios {
+		nodes = append(nodes, a.html()...)
+	}
+	if o.Description != "" {
+		nodes = append(nodes, metadataNode("og:description", o.Description))
+	}
+	if o.Determiner != "" {
+		nodes = append(nodes, metadataNode("og:determiner", o.Determiner))
+	}
+	if o.Locale != nil {
+		nodes = append(nodes, metadataNode("og:locale", o.Locale.Locale))
+		for _, a := range o.Locale.Alternates {
+			nodes = append(nodes, metadataNode("og:locale:alternate", a))
+		}
+	}
+	if o.SiteName != "" {
+		nodes = append(nodes, metadataNode("og:site_name", o.SiteName))
+	}
+	for _, v := range o.Videos {
+		nodes = append(nodes, v.html()...)
+	}
+	return nodes
 }
 
 func Parse(r io.Reader) (*Object, error) {
