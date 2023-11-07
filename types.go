@@ -11,6 +11,7 @@ type Locale struct {
 	Alternates []string
 }
 
+// An Image is an image which represents object within the graph.
 type Image struct {
 	URL       string
 	SecureURL string
@@ -43,6 +44,7 @@ func (i *Image) html() []*html.Node {
 	return nodes
 }
 
+// A Video is a video that complements object.
 type Video struct {
 	URL       string
 	SecureURL string
@@ -75,6 +77,7 @@ func (v *Video) html() []*html.Node {
 	return nodes
 }
 
+// An Audio is an audio file to accompany object.
 type Audio struct {
 	URL       string
 	SecureURL string

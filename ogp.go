@@ -27,6 +27,7 @@ type Metadata struct {
 	Content  string
 }
 
+// Object represents the Open Graph protocol object.
 type Object struct {
 	Title       string
 	Type        string
@@ -40,6 +41,7 @@ type Object struct {
 	Videos      []*Video
 }
 
+// HTML returns a slice of *html.Node that represents meta tags for the object.
 func (o *Object) HTML() []*html.Node {
 	var nodes []*html.Node
 	if o.Title != "" {
@@ -78,6 +80,7 @@ func (o *Object) HTML() []*html.Node {
 	return nodes
 }
 
+// Parse parses the given io.Reader and returns the Open Graph protocol object.
 func Parse(r io.Reader) (*Object, error) {
 	tokenizer := html.NewTokenizer(r)
 
