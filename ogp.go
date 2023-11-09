@@ -1,10 +1,7 @@
 package ogp
 
 import (
-	"errors"
-	"io"
 	"strconv"
-	"strings"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -80,143 +77,94 @@ func (o *Object) HTML() []*html.Node {
 	return nodes
 }
 
-// Parse parses the given io.Reader and returns the Open Graph protocol object.
-func Parse(r io.Reader) (*Object, error) {
-	tokenizer := html.NewTokenizer(r)
+type Locale struct {
+	Locale     string
+	Alternates []string
+}
 
-	var raw []Metadata
-outer:
-	for {
-		tokenType := tokenizer.Next()
+// An Image is an image which represents object within the graph.
+type Image struct {
+	URL       string
+	SecureURL string
+	Type      string
+	Width     uint64
+	Height    uint64
+	Alt       string
+}
 
-		switch tokenType {
-		case html.ErrorToken:
-			err := tokenizer.Err()
-			if errors.Is(err, io.EOF) {
-				break outer
-			}
-			return nil, err
-		case html.StartTagToken, html.SelfClosingTagToken:
-			token := tokenizer.Token()
-
-			if token.DataAtom != atom.Meta {
-				continue outer
-			}
-
-			var property, content string
-			for _, attr := range token.Attr {
-				if attr.Key == "property" {
-					property = attr.Val
-				}
-				if attr.Key == "content" {
-					content = attr.Val
-				}
-			}
-			if !strings.HasPrefix(property, "og:") {
-				continue outer
-			}
-			raw = append(raw, Metadata{Property: property, Content: content})
-		}
+func (i *Image) html() []*html.Node {
+	var nodes []*html.Node
+	if i.URL != "" {
+		nodes = append(nodes, metadataNode("og:image", i.URL))
 	}
-
-	obj := &Object{}
-	for _, d := range raw {
-		switch d.Property {
-		case "og:title":
-			if obj.Title == "" {
-				obj.Title = d.Content
-			}
-		case "og:type":
-			if obj.Type == "" {
-				obj.Type = d.Content
-			}
-		case "og:image", "og:image:url": // image
-			obj.Images = append(obj.Images, &Image{URL: d.Content})
-		case "og:image:secure_url":
-			if length := len(obj.Images); length > 0 && obj.Images[length-1].SecureURL == "" {
-				obj.Images[length-1].SecureURL = d.Content
-			}
-		case "og:image:type":
-			if length := len(obj.Images); length > 0 && obj.Images[length-1].Type == "" {
-				obj.Images[length-1].Type = d.Content
-			}
-		case "og:image:width":
-			if length := len(obj.Images); length > 0 && obj.Images[length-1].Width == 0 {
-				v, _ := strconv.ParseUint(d.Content, 10, 64) // ignore error
-				obj.Images[length-1].Width = v
-			}
-		case "og:image:height":
-			if length := len(obj.Images); length > 0 && obj.Images[length-1].Height == 0 {
-				v, _ := strconv.ParseUint(d.Content, 10, 64) // ignore error
-				obj.Images[length-1].Height = v
-			}
-		case "og:image:alt":
-			if length := len(obj.Images); length > 0 && obj.Images[length-1].Alt == "" {
-				obj.Images[length-1].Alt = d.Content
-			}
-		case "og:url":
-			if obj.URL == "" {
-				obj.URL = d.Content
-			}
-		case "og:audio": // audio
-			obj.Audios = append(obj.Audios, &Audio{URL: d.Content})
-		case "og:audio:secure_url":
-			if length := len(obj.Audios); length > 0 && obj.Audios[length-1].SecureURL == "" {
-				obj.Audios[length-1].SecureURL = d.Content
-			}
-		case "og:audio:type":
-			if length := len(obj.Audios); length > 0 && obj.Audios[length-1].Type == "" {
-				obj.Audios[length-1].Type = d.Content
-			}
-		case "og:description":
-			if obj.Description == "" {
-				obj.Description = d.Content
-			}
-		case "og:determiner":
-			if obj.Determiner == "" {
-				obj.Determiner = d.Content
-			}
-		case "og:locale":
-			if obj.Locale == nil {
-				obj.Locale = &Locale{}
-			}
-			if obj.Locale.Locale == "" {
-				obj.Locale.Locale = d.Content
-			}
-		case "og:locale:alternate":
-			if obj.Locale == nil {
-				obj.Locale = &Locale{}
-			}
-			obj.Locale.Alternates = append(obj.Locale.Alternates, d.Content)
-		case "og:site_name":
-			if obj.SiteName == "" {
-				obj.SiteName = d.Content
-			}
-		case "og:video": // video
-			obj.Videos = append(obj.Videos, &Video{URL: d.Content})
-		case "og:video:secure_url":
-			if length := len(obj.Videos); length > 0 && obj.Videos[length-1].SecureURL == "" {
-				obj.Videos[length-1].SecureURL = d.Content
-			}
-		case "og:video:type":
-			if length := len(obj.Videos); length > 0 && obj.Videos[length-1].Type == "" {
-				obj.Videos[length-1].Type = d.Content
-			}
-		case "og:video:width":
-			if length := len(obj.Videos); length > 0 && obj.Videos[length-1].Width == 0 {
-				v, _ := strconv.ParseUint(d.Content, 10, 64) // ignore error
-				obj.Videos[length-1].Width = v
-			}
-		case "og:video:height":
-			if length := len(obj.Videos); length > 0 && obj.Videos[length-1].Height == 0 {
-				v, _ := strconv.ParseUint(d.Content, 10, 64) // ignore error
-				obj.Videos[length-1].Height = v
-			}
-		case "og:video:alt":
-			if length := len(obj.Videos); length > 0 && obj.Videos[length-1].Alt == "" {
-				obj.Videos[length-1].Alt = d.Content
-			}
-		}
+	if i.SecureURL != "" {
+		nodes = append(nodes, metadataNode("og:image:secure_url", i.SecureURL))
 	}
-	return obj, nil
+	if i.Type != "" {
+		nodes = append(nodes, metadataNode("og:image:type", i.Type))
+	}
+	if i.Width != 0 {
+		nodes = append(nodes, metadataNode("og:image:width", strconv.FormatUint(i.Width, 10)))
+	}
+	if i.Height != 0 {
+		nodes = append(nodes, metadataNode("og:image:height", strconv.FormatUint(i.Height, 10)))
+	}
+	if i.Alt != "" {
+		nodes = append(nodes, metadataNode("og:image:alt", i.Alt))
+	}
+	return nodes
+}
+
+// A Video is a video that complements object.
+type Video struct {
+	URL       string
+	SecureURL string
+	Type      string
+	Width     uint64
+	Height    uint64
+	Alt       string
+}
+
+func (v *Video) html() []*html.Node {
+	var nodes []*html.Node
+	if v.URL != "" {
+		nodes = append(nodes, metadataNode("og:video", v.URL))
+	}
+	if v.SecureURL != "" {
+		nodes = append(nodes, metadataNode("og:video:secure_url", v.SecureURL))
+	}
+	if v.Type != "" {
+		nodes = append(nodes, metadataNode("og:video:type", v.Type))
+	}
+	if v.Width != 0 {
+		nodes = append(nodes, metadataNode("og:video:width", strconv.FormatUint(v.Width, 10)))
+	}
+	if v.Height != 0 {
+		nodes = append(nodes, metadataNode("og:video:height", strconv.FormatUint(v.Height, 10)))
+	}
+	if v.Alt != "" {
+		nodes = append(nodes, metadataNode("og:video:alt", v.Alt))
+	}
+	return nodes
+}
+
+// An Audio is an audio file to accompany object.
+type Audio struct {
+	URL       string
+	SecureURL string
+	Type      string
+}
+
+func (a *Audio) html() []*html.Node {
+	var nodes []*html.Node
+	if a.URL != "" {
+		nodes = append(nodes, metadataNode("og:audio", a.URL))
+	}
+	if a.SecureURL != "" {
+		nodes = append(nodes, metadataNode("og:audio:secure_url", a.SecureURL))
+	}
+	if a.Type != "" {
+		nodes = append(nodes, metadataNode("og:audio:type", a.Type))
+	}
+	return nodes
 }
