@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"strconv"
-	"strings"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -13,6 +12,8 @@ import (
 // Parse parses the given io.Reader and returns the Open Graph protocol object.
 func Parse(r io.Reader) (*Object, error) {
 	tokenizer := html.NewTokenizer(r)
+
+	var depth int
 
 	var raw []Metadata
 outer:
@@ -29,6 +30,13 @@ outer:
 		case html.StartTagToken, html.SelfClosingTagToken:
 			token := tokenizer.Token()
 
+			if token.DataAtom == atom.Head && tokenType == html.StartTagToken {
+				depth++
+				continue outer
+			}
+			if depth == 0 {
+				continue outer
+			}
 			if token.DataAtom != atom.Meta {
 				continue outer
 			}
@@ -42,10 +50,16 @@ outer:
 					content = attr.Val
 				}
 			}
-			if !strings.HasPrefix(property, "og:") {
+			if property == "" {
 				continue outer
 			}
 			raw = append(raw, Metadata{Property: property, Content: content})
+
+		case html.EndTagToken:
+			token := tokenizer.Token()
+			if token.DataAtom == atom.Head {
+				depth--
+			}
 		}
 	}
 
